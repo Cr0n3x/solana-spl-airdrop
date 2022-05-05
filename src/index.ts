@@ -22,6 +22,7 @@ interface DistributionLog {
 
 const cachePath = '../.cache';
 const logPath = '../.cache/distribution.log.json';
+const configDirPath = '../config';
 const configPath = '../config/config.json';
 const distributionPath = '../config/distribution.json';
 const fsOptions: { encoding: BufferEncoding, flag?: string | undefined } = {encoding: 'utf8', flag: 'r'};
@@ -34,8 +35,18 @@ const setup = (): {
 } | null => {
     let existingLog: DistributionLog[] = [];
 
+    if (!fs.existsSync(path.resolve(__dirname, configDirPath))) {
+        console.log('ERROR: No config directory found!');
+        return null;
+    }
+
     if (!fs.existsSync(path.resolve(__dirname, configPath))) {
-        console.log('ERROR: No config.json found.');
+        console.log('ERROR: No config.json found. Please add a valid config.json into the config directory!');
+        return null;
+    }
+
+    if (!fs.existsSync(path.resolve(__dirname, distributionPath))) {
+        console.log('ERROR: No distribution.json found. Please add a valid distribution.json into the config directory!');
         return null;
     }
 
@@ -44,15 +55,10 @@ const setup = (): {
         privateKeyPath
     }: Config = JSON.parse(fs.readFileSync(path.resolve(__dirname, configPath), fsOptions));
 
-    if (!fs.existsSync(path.resolve(__dirname, distributionPath))) {
-        console.log('ERROR: No distribution.json found.');
-        return null;
-    }
-
     let items = JSON.parse(fs.readFileSync(path.resolve(__dirname, distributionPath), fsOptions));
 
     if (!fs.existsSync(path.resolve(__dirname, cachePath))) {
-        console.log('NO CACHE DIRECTORY FOUND, CREATING NEW DIRECTORY NOW.')
+        console.log('Creating .cache directory.')
         fs.mkdirSync(path.resolve(__dirname, cachePath));
     }
 
@@ -123,8 +129,8 @@ const airDrop = () => {
         }
         fs.writeFileSync(path.resolve(__dirname, logPath), JSON.stringify(log));
     }
-    console.log(`AirDrop of ${splTokenAddress} completed. Success: ${completedCount + completedInPrevRunCount} ${completedInPrevRunCount > 0 && `(${completedInPrevRunCount} thereof in previous run)` }, Failed: ${failedCount}`)
-    if(failedCount > 0) {
+    console.log(`AirDrop of ${splTokenAddress} completed. Success: ${completedCount + completedInPrevRunCount} ${completedInPrevRunCount > 0 && `(${completedInPrevRunCount} thereof in previous run)`}, Failed: ${failedCount}`)
+    if (failedCount > 0) {
         console.log('Please re run AirDrop command!')
     }
 }
