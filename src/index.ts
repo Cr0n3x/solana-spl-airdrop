@@ -119,7 +119,7 @@ const airDrop = () => {
             log.push(response);
             completedCount++;
         } catch (error: any) {
-            console.log(`SEND TOKEN FAILED => ${error?.message?.toString() + error?.output?.[2]?.toString()}`);
+            console.log(`Transferring ${item.amount} tokens of ${splTokenAddress} to ${item.publicKey} failed.`);
             response.publicKey = item.publicKey!;
             response.amount = item.amount!;
             response.status = DistributionStatus.FAILED;
