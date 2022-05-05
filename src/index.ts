@@ -1,5 +1,3 @@
-import ErrnoException = NodeJS.ErrnoException;
-
 const fs = require('fs');
 const path = require('path');
 
@@ -22,21 +20,23 @@ interface DistributionLog {
     error?: string | undefined;
 }
 
-
 const cachePath = '../.cache';
 const logPath = '../.cache/distribution.log.json';
 const configPath = '../config/config.json';
 const distributionPath = '../config/distribution.json';
 const fsOptions: { encoding: BufferEncoding, flag?: string | undefined } = {encoding: 'utf8', flag: 'r'};
 
-const airDrop = () => {
-    let log;
-    let logfileExits = false;
-
+const setup = (): {
+    items: Partial<DistributionLog>[];
+    splTokenAddress: string;
+    privateKeyPath: string;
+    existingLog: DistributionLog[];
+} | null => {
+    let existingLog: DistributionLog[] = [];
 
     if (!fs.existsSync(path.resolve(__dirname, configPath))) {
         console.log('ERROR: No config.json found.');
-        return;
+        return null;
     }
 
     const {
@@ -46,7 +46,7 @@ const airDrop = () => {
 
     if (!fs.existsSync(path.resolve(__dirname, distributionPath))) {
         console.log('ERROR: No distribution.json found.');
-        return;
+        return null;
     }
 
     let items = JSON.parse(fs.readFileSync(path.resolve(__dirname, distributionPath), fsOptions));
@@ -58,21 +58,37 @@ const airDrop = () => {
 
     if (!fs.existsSync(path.resolve(__dirname, logPath))) {
         fs.writeFileSync(path.resolve(__dirname, logPath), JSON.stringify([]));
-        log = [];
-        logfileExits = true;
+        existingLog = [];
     }
 
-    console.log("Total to run before removing success ones: " + items.length);
+    return {items, splTokenAddress, privateKeyPath, existingLog}
 
-    log = logfileExits ? log : JSON.parse(fs.readFileSync(path.resolve(__dirname, logPath), fsOptions));
+}
+
+const airDrop = () => {
+    let log;
+    const setupResult = setup();
+
+    if (!setupResult) {
+        return;
+    }
+
+    const {items, splTokenAddress, privateKeyPath, existingLog} = setupResult;
+
+    console.log(`Starting AirDrop of ${splTokenAddress} to ${items.length} Wallets`);
+
+    log = existingLog.length > 0 ? existingLog : JSON.parse(fs.readFileSync(path.resolve(__dirname, logPath), fsOptions));
+
+    let failedCount = 0;
+    let completedCount = 0;
+    let completedInPrevRunCount = 0;
 
     for (const item of items) {
 
-        let element = log.find((i: DistributionLog) => {
-            return i.publicKey === item.publicKey;
-        });
+        const completed = log.find((i: DistributionLog) => i.publicKey === item.publicKey && i.status === DistributionStatus.DONE);
 
-        if (element && element.status === DistributionStatus.DONE) {
+        if (completed) {
+            completedInPrevRunCount++;
             continue;
         }
 
@@ -86,24 +102,30 @@ const airDrop = () => {
 
         const command = `spl-token transfer ${splTokenAddress} ${item.amount} ${item.publicKey} --owner ${privateKeyPath} --allow-unfunded-recipient --fund-recipient`;
 
-        console.log(command);
+        console.log(`Transferring ${item.amount} tokens of ${splTokenAddress} to ${item.publicKey}`);
 
         try {
             let result = require('child_process').execSync(command);
-            response.publicKey = item.publicKey;
-            response.amount = item.amount;
+            response.publicKey = item.publicKey!;
+            response.amount = item.amount!;
             response.txn = result.toString();
             response.status = DistributionStatus.DONE;
             log.push(response);
+            completedCount++;
         } catch (error: any) {
             console.log(`SEND TOKEN FAILED => ${error?.message?.toString() + error?.output?.[2]?.toString()}`);
-            response.publicKey = item.publicKey;
-            response.amount = item.amount;
+            response.publicKey = item.publicKey!;
+            response.amount = item.amount!;
             response.status = DistributionStatus.FAILED;
             response.error = `${error?.message?.toString() + error?.output?.[2]?.toString()}`;
             log.push(response);
+            failedCount++;
         }
         fs.writeFileSync(path.resolve(__dirname, logPath), JSON.stringify(log));
+    }
+    console.log(`AirDrop of ${splTokenAddress} completed. Success: ${completedCount + completedInPrevRunCount} ${completedInPrevRunCount > 0 && `(${completedInPrevRunCount} thereof in previous run)` }, Failed: ${failedCount}`)
+    if(failedCount > 0) {
+        console.log('Please re run AirDrop command!')
     }
 }
 
