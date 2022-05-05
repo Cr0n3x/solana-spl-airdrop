@@ -1,6 +1,6 @@
 import React, {FC, useCallback, useEffect, useMemo, useState} from 'react';
 import {ConnectionProvider, useConnection, useWallet, WalletProvider} from '@solana/wallet-adapter-react';
-import {WalletAdapter, WalletAdapterNetwork, WalletNotConnectedError} from '@solana/wallet-adapter-base';
+import {WalletAdapter, WalletAdapterNetwork} from '@solana/wallet-adapter-base';
 import {clusterApiUrl, PublicKey, Transaction} from '@solana/web3.js';
 import {PhantomWalletAdapter} from '@solana/wallet-adapter-wallets';
 import {WalletModalProvider, WalletMultiButton} from '@solana/wallet-adapter-react-ui';
@@ -8,8 +8,6 @@ import {getOrCreateAssociatedTokenAccount} from "./utils/getOrCreateAssociatedTo
 import {createTransferInstruction} from "./utils/createTransferInstructions";
 import {TOKEN_PROGRAM_ID} from "@solana/spl-token";
 
-// Default styles that can be overridden by your app
-require('@solana/wallet-adapter-react-ui/styles.css');
 
 export const Wallet: FC<{ children: any }> = ({children}) => {
     const network = WalletAdapterNetwork.Devnet;
